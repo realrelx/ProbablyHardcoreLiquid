@@ -2,7 +2,7 @@
 
 给《深空当铺 (Probably Stolen)》的硬核小 mod：**液体再也倒不干净**。每个容器都有固有残留，倾倒/转移只带走「总量 − 残留」，残留与转移量组成同比例；只剩残留时倒不出去，兑入新液才能再倒。零权限声明。
 
-源码与下载：<https://github.com/realrelx/ProbablyHardcoreLiquid> · Steam 创意工坊（待上架）
+源码与下载：<https://github.com/realrelx/ProbablyHardcoreLiquid> · 创意工坊：https://steamcommunity.com/sharedfiles/filedetails/?id=3830066983
 
 ## 机制
 
