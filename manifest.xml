@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModManifest>
+  <ID>ProbablyHardcoreLiquid</ID>
+  <Name>Probably Hardcore Liquid (可能是困难的液体)</Name>
+  <Author>han</Author>
+  <ModVersion>0.6.7</ModVersion>
+  <Description><![CDATA[液体再也倒不干净：每个容器都有固有残留（= min(容器容积 × 残留比例 × 粘度因子, 残留上限)），倾倒/转移只带走 (总量 − 残留)，残留与转移量组成同比例；瓶里只剩残留时倒不出去，兑入新液才能再倒。残留比例、上限、容器范围、粘度缩放、37 种成分粘度表全部可在设置菜单调整（默认中文，英语系语言自动切换英文）。零权限声明。]]></Description>
+  <GameVersions>
+    <Version>0.46D</Version>
+  </GameVersions>
+  <Prerequisites>
+  </Prerequisites>
+  <Assemblies>
+    <Assembly>ProbablyHardcoreLiquid.dll</Assembly>
+  </Assemblies>
+  <Capabilities>
+  </Capabilities>
+</ModManifest>
