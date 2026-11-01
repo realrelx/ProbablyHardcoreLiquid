@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 说明：本机没有 .NET SDK，日常构建走 build.ps1（csc.exe / C#5）。
+       本文件用于将来装好 SDK 后的 IDE/CI 场景，引用路径通过 GameManaged 属性传入。 -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>ProbablyHardcoreLiquid</AssemblyName>
+    <RootNamespace>ProbablyHardcoreLiquid</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <NoWarn>CS0414</NoWarn>
+    <GameManaged Condition="'$(GameManaged)' == ''">D:\steam\steamapps\common\Probably Stolen\Probably Stolen_Data\Managed</GameManaged>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+    <EmbeddedResource Include="Textures\Items\spray_empty.png" LogicalName="ProbablyHardcoreLiquid.spray_empty.png" />
+    <EmbeddedResource Include="Textures\Items\spray_quarter.png" LogicalName="ProbablyHardcoreLiquid.spray_quarter.png" />
+    <EmbeddedResource Include="Textures\Items\spray_half.png" LogicalName="ProbablyHardcoreLiquid.spray_half.png" />
+    <EmbeddedResource Include="Textures\Items\spray_full.png" LogicalName="ProbablyHardcoreLiquid.spray_full.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameManaged)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameManaged)\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameManaged)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(GameManaged)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

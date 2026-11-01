@@ -1,4 +1,12 @@
-# backups & local junk
-preview_pixelart_backup.png
-*.pdb
+# 构建产物
+build/
+bin/
+obj/
+upload/
+*.zip
+
+# 本地杂物 / 备份
+_local_archive/
 ModConfigs/
+*.pdb
+preview_pixelart_backup.png

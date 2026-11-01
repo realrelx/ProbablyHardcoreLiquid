@@ -1,50 +1,142 @@
 # Probably Hardcore Liquid（可能是困难的液体）
 
-给《深空当铺 (Probably Stolen)》的硬核小 mod：**液体再也倒不干净**。每个容器都有固有残留，倾倒/转移只带走「总量 − 残留」，残留与转移量组成同比例；只剩残留时倒不出去，兑入新液才能再倒。零权限声明。
+给《深空当铺 (Probably Stolen)》的硬核液体 mod：**液体再也倒不干净**，并给你一把能把它洗干净的喷壶。
 
-源码与下载：<https://github.com/realrelx/ProbablyHardcoreLiquid> · 创意工坊：https://steamcommunity.com/sharedfiles/filedetails/?id=3830066983
+Steam 创意工坊：<https://steamcommunity.com/sharedfiles/filedetails/?id=3830066983>
+当前版本：**0.9.15** · 游戏版本 0.46D · 零能力声明
+
+---
 
 ## 机制
 
-- **固有残留 R**：`R = min(容器最大容积 × 残留比例% × 粘度因子, 残留上限)`。500ml 瓶 + 0.5% + 纯水 → 2.5ml；5L 水箱 + 0.5% → 理论 25ml，被上限 10ml 截断。
-- **组成同比例**：水:酒精 30:70 的混合液倒出去，转移部分和留下的残留都是 30:70。
-- **只剩残留倒不出去**：瓶里只有 R 时再倒 → 转移量 0；注入新液体混合后，总量大于 R 才能再倒出 (总量 − R)。
-- **哪里倒都留**：倒进别的容器、倒排水口、清空、排空酒瓶，都保留 R。
-- **粘度（真实物理值，20°C，水 = 1）**：酒精 1.2、葡萄酒 1.5、浓盐酸 2.0、浓烧碱 13、咖啡渣浆 5、烹饪油 80、糖浆 60、淀粉糊 100、甲醇类 0.7……覆盖原版全部 37 种液体成分，未列出的（含 mod 新液体）默认 = 1。混合液按体积加权平均。
-- **粘度因子 = 1 + (η^(1/7) − 1) × viscosity_scale**：药品灌装 HUV 经验模型的简化项——粘度 10 倍，残留只多约 1.39 倍（亚线性）。`viscosity_scale` 填 0 = 关闭粘度，全按水算。
-- **夜间机器不干预**：净水器、蒸发器、RAS 等每夜耗水是机器工作，不留残留，不坏档。
-- **单位**：游戏内部液体体积是 µl；配置一律按人类习惯的 **ml** 标注，mod 内部换算 ×1000。
+### 1. 固有残留 R
+
+每个液体容器都带一份永远倒不出去的残留：
+
+```
+R = min(容器最大容积 × 残留比例% × 粘度因子, 残留上限)
+```
+
+- 倾倒、转移、倒排水口、清空酒瓶，都只带走 `总量 − R`，两边组成同比例。
+- 只剩 R 时倒不出去；兑入新液、总量超过 R 才能再倒出 `总量 − R`。
+- 默认 0.5%、上限 5ml：500ml 瓶 + 纯水 → 2.5ml 残留。
+
+### 2. 粘度（真实物理值，20°C，水 = 1）
+
+覆盖原版全部 37 种液体成分：酒精 1.2、葡萄酒 1.5、浓盐酸 2.0、浓烧碱 13、咖啡渣浆 5、烹饪油 80、糖浆 60、淀粉糊 100、甲醇类 0.7……未登记的（含其他 mod 的液体）按水处理。
+
+- **混合按对数混合**（Arrhenius / Grünberg-Nissan 式）：`ln η_mix = Σ(体积ᵢ·ln ηᵢ) / Σ体积ᵢ`。
+- **粘度因子** `= 1 + (η^(1/7) − 1) × viscosity_scale`：粘度 10 倍，残留只多约 1.39 倍。`viscosity_scale = 0` 关闭粘度，全按水算。
+
+### 3. 实验室喷壶
+
+1000ml，占 **1×2 格**，约 80 信用点。
+
+| 操作 | 结果 |
+| --- | --- |
+| 拖到液体容器 | 连续稀释清洗：喷量 `M = 清洗倍率 × 该容器残留 c`，清洗后残留比例 `p = e^(−M/c)` ≈ **4.98%**（倍率 3） |
+| 拖到水龙头 | 装水，沿用当天水质与净水器判定 |
+| 拖到排水口 | 倒空 |
+| 拖到其他物品 | 无反应（不能整壶转移） |
+
+- 残留 c 只在**清洗开始时**计算一次（`c = 容量 × 比例% × V(η_mix)`，受上限封顶），清洗过程中当常数——所以 `p = e^(−k)` 是一步闭式解。
+- 水不够时 k 被钳到「可用水量 / c」，日志会打 `spray rinse limited by bottle`。
+- 贴图为 300×790 高清母版，运行时按 `gridSize` 缩到 `1×2` 格；四态（空 / 1/4 / 半 / 满）轮廓一致。
+- 化学家开局送一把满纯水（水质可配）；博士与下层区化学商人有概率出售空壶。
+
+### 4. 清洗前判定
+
+| 情形 | 结果 |
+| --- | --- |
+| 目标是空容器 | 不响应 |
+| 容器液体 > 残留上限 + 可配余量（默认 1ml） | 拒绝，日志 `skip rinse` |
+| 喷壶只剩自己的残留 | 拒绝 |
+
+---
+
+## 构建
+
+本机无需 .NET SDK，走 .NET Framework 自带的 `csc.exe`（C#5）：
+
+```powershell
+$env:PROBABLY_STOLEN_PATH = 'D:\steam\steamapps\common\Probably Stolen'
+.\build.ps1            # → build\<版本>\ProbablyHardcoreLiquid.dll + manifest.xml
+.\test.ps1             # 96 项离线检查
+.\deploy.ps1           # 装进 <游戏>\Mods\ProbablyHardcoreLiquid（游戏须退出）
+```
+
+`-GamePath` 可覆盖环境变量；两个脚本都不硬编码游戏目录。
+
+**引用程序集**来自游戏 `Probably Stolen_Data\Managed`：`netstandard.dll`、`mscorlib.dll`、`UnityEngine.CoreModule.dll`、`UnityEngine.ImageConversionModule.dll`、`Assembly-CSharp.dll`、`0Harmony.dll`。
+
+> PowerShell 5.1 读取**无 BOM** 的 UTF-8 `.ps1` 会按 GBK 解析并报语法错误——本仓库的 `.ps1` 一律 UTF-8 **with BOM**。
+
+---
+
+## 目录
+
+```
+src/
+  Core.cs                       IMod 入口、生命周期、ModHook 订阅
+  Infrastructure/Settings.cs    ModConfig 定义（残留、粘度表、喷壶）
+  Infrastructure/Loc.cs         中英文案
+  Infrastructure/GiftPump.cs    落位重试泵（MonoBehaviour）
+  Items/Spray.cs                喷壶：创建 / 落位 / 清洗 / 贴图
+  Mechanics/Residue/ResidueLogic.cs   残留结算与粘度
+  Mechanics/Residue/Patches.cs        液体出口补丁
+  Mechanics/Residue/DropperFix.cs     滴管「只剩残渣仍可吸」
+Textures/Items/                 4 张 300×790 高清母版
+Textures/Source/                原始 2×2 素材表
+scripts/make_spray_textures.ps1 从素材表重新生成母版
+docs/                           设计、贴图规格、修复记录、工坊文案
+test.ps1                        96 项离线断言（manifest / 贴图 / 红线 / 常量 / 模型）
+```
+
+---
 
 ## 配置
 
-设置菜单：Mods 列表 → 选中 Probably Hardcore Liquid → 设置（数值项是自由输入框，容器范围是下拉框）。配置文件是权威来源：`ModConfigs\ProbablyHardcoreLiquid.json`。菜单文字随游戏语言自动切换：**默认中文**，游戏为英语系语言时显示英文。
+设置菜单：Mods 列表 → Probably Hardcore Liquid → 设置。数值项是**自由输入框**（可填小数），容器范围是下拉框。配置文件 `ModConfigs\ProbablyHardcoreLiquid.json` 是权威来源。
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
-| `residue_percent` | 0.5 | 残留比例，直接填百分数：1=1%，0.5=0.5%，0=关闭 |
-| `max_residue_ml` | 10 | 残留上限（ml）：实际残留 = min(容积×比例×粘度因子, 上限)；0 = 不设上限 |
-| `container_scope` | all | 容器范围：`all` / `vanilla` |
-| `viscosity_scale` | 1 | 粘度缩放：因子 = 1+(η^(1/7)−1)×缩放；1=真实物理（HUV 模型），0=关闭粘度 |
+| `residue_percent` | 0.5 | 残留比例（百分数，1 = 1%），0 = 关闭 |
+| `max_residue_ml` | 5 | 残留上限 ml，0 = 不设上限 |
+| `container_scope` | all | `all` / `vanilla` |
+| `viscosity_scale` | 1 | 粘度缩放，0 = 关闭 |
+| `viscosity_*` | 见菜单 | 37 种液体成分粘度表，逐项可调 |
+| `spray_enabled` | true | 喷壶总开关 |
+| `spray_rinse_ratio` | 3 | 清洗倍率 k（可填 2.5 等小数） |
+| `spray_rinse_volume_limit_ml` | 1 | 可洗余量：容器液体 > 残留上限 + 该值则拒绝 |
+| `spray_start_gift` | true | 化学家开局送壶 |
+| `spray_gift_fill` | pure | 赠送水质：`pure` / `high_quality` / `base` |
+| `spray_chemist_weight` | 10 | 化学商人上架权重（%） |
+| `spray_doctor_prob` | 0.25 | 博士每日判定概率 |
+| `spray_price` | 80 | 售价 |
 
-设置菜单里另有**粘度表分组**：37 种液体成分逐项可调（默认 = 20°C 真实动态粘度，水=1），菜单文字同样随游戏语言切换。
-
-例（500ml、0.5%、默认设置）：纯水 → **2.5ml**；纯酒精（η1.2）→ 2.6ml；浓烧碱（η13）→ 3.6ml；烹饪油（η80）→ 4.7ml；甲醇类（η0.7）→ 2.4ml（比水还少）。油比水粘 80 倍，残留只多约 1.87 倍。
-
-## 安装
-
-1. 运行 `build.ps1`（自动编译并拷贝到游戏 `Mods\ProbablyHardcoreLiquid\`）。
-2. 进游戏 → Mods 界面 → 启用 **Probably Hardcore Liquid**。
+---
 
 ## 已知限制
 
 - 直接饮用（sipping）不残留：那是"喝"，不是"倒"；原版相关方法带 byref 参数，刻意不碰。
 - 分装（Split Water）分出的新瓶由原版内部创建、拿不到引用：源瓶残留正常保留；仅当瓶中总量不足 2×R 时可能有几 µl 微小误差。
-- 残留不改变原版水质/价格系统：残留成分就是原液体成分，鉴定、卖价走原版逻辑。
+- 残留不改变原版水质/价格系统：残留成分就是原液体成分，鉴定与卖价走原版逻辑。
+
+---
+
+## 兼容与安全
+
+- **零能力声明**：不申请 process / steam / files / 网络等任何能力。
+- 不修改夜间机器结算（净水器、蒸发器、RAS 的每夜耗水不留残留）、不动存档格式。
+- 与其他液体 mod 共存：未登记粘度的成分按水处理。
+- 字符串 ID 一律 `ProbablyHardcoreLiquid` 前缀；Harmony 补丁只用自己的 ID。
+
+---
 
 ## 致谢
 
-- 内容与代码：DeepSeek AI（约 8 元 API 成本）
-- 封面图：GPT 生成
+- 内容与代码：DeepSeek AI
+- 封面与贴图：GPT 生成
 - 游戏：《深空当铺 / Probably Stolen》(Questing Goose Studio)
 
 ## 许可

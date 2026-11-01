@@ -48,6 +48,8 @@ namespace ProbablyHardcoreLiquid
                 if (s == null) return null;
                 if (s.PercentValue <= 0f) return null; // 0 = 完全关闭
                 if (!ScopeAllows(source)) return null;
+                // 滴管不再豁免残留（v0.8.1 的免残留做法已被用户否掉）。
+                // 滴管「吸不动」改由 DropperFix 在交互层解决：只剩残留时仍走吸取分支。
                 int total = WaterHelper.GetTotalVolume(source);
                 if (total <= 0) return null;
                 int[] parts = WaterHelper.GetLiquidParts(source);
@@ -66,9 +68,24 @@ namespace ProbablyHardcoreLiquid
             }
         }
 
-        // 排水口/水槽/龙头不是"容器"，不做目标侧扣除（倒进它们的水本来就是销毁）
-        private static GameItem NormalizeTarget(GameItem target)
+        // 原版滴管标记（WaterHelper.InitLiquidContainerItem 里开在物品上的 tag）
+        private const string DropperTag = "LIQUID_CONTAINER_DROPPER_TAG";
+
+        public static bool IsDropper(GameItem item)
         {
+            if (item == null) return false;
+            try
+            {
+                return item.IsTag(DropperTag);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        // 排水口/水槽/龙头不是"容器"，不做目标侧扣除（倒进它们的水本来就是销毁）
+        private static GameItem NormalizeTarget(GameItem target)        {
             if (target == null) return null;
             try
             {
@@ -162,8 +179,8 @@ namespace ProbablyHardcoreLiquid
         // ===== 粘度系数（v0.6，v0.6.7 起可逐项配置）=====
         // 以水 = 1 为基准；粘度表现在是配置项（设置菜单"粘度"分组，默认 = 20°C 真实
         // 动态粘度）；没列出的液体成分默认 = 1，其他 mod 引入的新液体自动有粘度系数。
-        // 混合粘度 = 按体积加权平均：Σ(成分体积 × 粘度) / 总体积。
-        // 有效粘度 = 1 + (混合粘度 − 1) × viscosity_scale（scale=0 关闭粘度）。
+        // 混合粘度 = 对数混合（Arrhenius / Grünberg-Nissan）：ln η = Σ(体积ᵢ·ln ηᵢ) / 总体积。
+        // 有效粘度 = 1 + (混合粘度^(1/7) − 1) × viscosity_scale（scale=0 关闭粘度）。
 
         private static float ViscosityOf(string liquidId)
         {
@@ -180,24 +197,66 @@ namespace ProbablyHardcoreLiquid
             }
         }
 
-        // 按体积加权平均计算混合粘度；parts 的下标与 Liquid.Liquids 对齐
-        private static float MixViscosity(int[] parts)
+        // v0.9.10：对数混合（Arrhenius / Grünberg-Nissan）——ln η_mix = Σ(xᵢ·ln ηᵢ)
+        // 粘度是乘性量，不是可加量：水 50% + 油脂 50% 得 8.94（线性平均会给 40.5，高估 4.5 倍）。
+        // 浮点版供清洗积分使用（组成连续变化，不能用整数 µl）。
+        internal static float MixViscosity(double[] parts)
         {
             List<Liquid> liquids = Liquid.Liquids;
             if (parts == null || liquids == null) return 1f;
             int n = parts.Length;
             if (n > liquids.Count) n = liquids.Count;
-            long total = 0;
+            double total = 0.0;
             double sum = 0.0;
             for (int i = 0; i < n; i++)
             {
-                int p = parts[i];
-                if (p <= 0) continue;
+                double p = parts[i];
+                if (p <= 0.0) continue;
+                double eta = (double)ViscosityOf(liquids[i].identifier);
+                if (eta < 0.01) eta = 0.01; // 防 log(0)：极稀组分按 0.01 处理
                 total += p;
-                sum += (double)p * (double)ViscosityOf(liquids[i].identifier);
+                sum += p * System.Math.Log(eta);
             }
-            if (total <= 0) return 1f;
-            return (float)(sum / total);
+            if (total <= 0.0) return 1f;
+            return (float)System.Math.Exp(sum / total);
+        }
+
+        // 有效粘度因子，浮点版；与整数版同一公式，供清洗过程逐步积分使用
+        public static double ViscosityFactor(double[] parts)
+        {
+            HardcoreLiquidSettings s = ProbablyHardcoreLiquidMod.Settings;
+            if (s == null) return 1.0;
+            float scale = s.ViscosityScaleValue;
+            if (scale < 0f) scale = 0f;
+            float mix = MixViscosity(parts);
+            if (mix < 0f) mix = 0f;
+            double v = 1.0 + (System.Math.Pow((double)mix, 1.0 / 7.0) - 1.0) * (double)scale;
+            if (v < 0.05) v = 0.05;
+            return v;
+        }
+
+        // 对数混合，整数版：转成 double 后走同一个实现，保证两处口径完全一致
+        // （parts 的下标与 Liquid.Liquids 对齐）
+        internal static float MixViscosity(int[] parts)
+        {
+            if (parts == null) return 1f;
+            double[] d = new double[parts.Length];
+            for (int i = 0; i < parts.Length; i++) d[i] = parts[i];
+            return MixViscosity(d);
+        }
+
+        // 有效粘度因子（1 = 按水算）；喷壶判定"内容物 vs 残留"时也用它，保证两处口径一致
+        public static double ViscosityFactor(int[] parts)
+        {
+            HardcoreLiquidSettings s = ProbablyHardcoreLiquidMod.Settings;
+            if (s == null) return 1.0;
+            float scale = s.ViscosityScaleValue;
+            if (scale < 0f) scale = 0f;
+            float mix = MixViscosity(parts);
+            if (mix < 0f) mix = 0f;
+            double v = 1.0 + (System.Math.Pow((double)mix, 1.0 / 7.0) - 1.0) * (double)scale;
+            if (v < 0.05) v = 0.05;
+            return v;
         }
 
         // 残留体积 = 容器最大容积(ml) × 比例% × 有效粘度；再与上限(ml)取小，换算回 µl。
@@ -222,12 +281,7 @@ namespace ProbablyHardcoreLiquid
             // 有效因子 = 1 + (η^(1/7) − 1) × 缩放；缩放 0 = 关闭粘度（全部按水算）。
             // 采用药品灌装 HUV 经验模型的 η^(1/7) 项：粘度对残留是亚线性依赖
             // （η 10 倍 ≈ 残留 1.39 倍），油脂 80 倍粘度只给 80^(1/7)≈1.87 倍残留。
-            float scale = s.ViscosityScaleValue;
-            if (scale < 0f) scale = 0f;
-            float mix = MixViscosity(parts);
-            if (mix < 0f) mix = 0f;
-            double viscosity = 1.0 + (System.Math.Pow((double)mix, 1.0 / 7.0) - 1.0) * (double)scale;
-            if (viscosity < 0.05) viscosity = 0.05;
+            double viscosity = ViscosityFactor(parts);
 
             double residueMl = capacityMl * (percent / 100.0) * viscosity;
             long capUl = s.MaxUlValue;

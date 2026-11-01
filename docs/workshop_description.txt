@@ -1,0 +1,72 @@
+Probably Hardcore Liquid（可能是困难的液体）— v0.9.15
+
+【English below】
+
+== 一句话 ==
+液体再也倒不干净，并给你一把能把它洗干净的喷壶。
+
+== 这个 mod 做什么 ==
+每个液体容器都有固有残留：残留 = min(容积 × 残留比例 × 粘度, 残留上限)。倾倒、转移、排空只带走「总量 − 残留」，两边组成保持同比例；瓶里只剩残渣时倒不出去，得兑入新液才能再倒。
+37 种原版液体成分配有粘度表（水 = 1：酒精 1.2、食用油 80、淀粉糊 100、烧碱 13…），其他 mod 的液体默认按水处理。
+
+== 实验室喷壶 ==
+· 1000ml，1×2 格，约 80 信用点，只能倒掉或清洗别的容器，不能整壶转移。
+· 拖到液体容器 = 连续稀释清洗：总喷量 M = 清洗倍率 × 目标残留（默认 3 倍），洗后残留比例 = e^(−M/c) ≈ 4.98%。
+· 拖到水龙头装水（沿用当天水质与净化器判定），拖到排水口倒空。
+· 贴图随液位切换（空 / 1/4 / 半 / 满），高清母版运行时按网格缩放。
+· 化学家开局送一把满纯水（水质可配），博士与下层区化学商人有概率出售空壶。
+
+== 本次更新（0.8.x → 0.9.15）==
+· 喷壶占格修正为真正的 1×2，可直接放进店铺仓库，不再占用柜台或卷帘门外。
+· 贴图换成高清母版（面积平均重采样 + 隐形占格锚点），四态轮廓一致。
+· 修复 1ml / 5ml 滴管在「只剩残渣」时吸不动的问题：残留机制完整保留，只在残渣量水平上允许吸取。
+· 清洗模型回归最简版：p = e^(−M/c)，粘度只决定「要花多少水」，不改变清洁力。
+· 清洗前判定：空容器不响应；容器液体超过「残留上限 + 可配余量」才拒绝，避免误倒整罐。
+· 配置菜单：清洗倍率改为数字输入框（可填小数）、可洗液体上限余量可填数字、博士概率修正为「每天一次判定」。
+· 全部数值可调，零权限声明，不干扰夜间机器流程。
+
+== 配置（默认值）==
+残留比例 0.5%（0 = 关）· 残留上限 5ml（0 = 不限）· 容器范围 全部 / 仅原版 · 粘度缩放 1（0 = 关）· 36 种成分粘度表
+喷壶：开关 · 清洗倍率 3 · 开局赠壶 · 装液水质 纯水 / 优质水 / 基础水 · 清洗倍量余量 1ml · 化学商人权重 10% · 博士概率 25% · 价格 80
+
+== 兼容与安全 ==
+零能力声明（不申请 process / steam / files 等任何能力）；不修改夜间机器结算与存档格式；与其他液体 mod 共存时，未登记粘度的成分按水处理。
+安全与开源——完整源码见 GitHub：https://github.com/realrelx/ProbablyHardcoreLiquid
+致谢：内容与代码由 DeepSeek 协助制作；美术由 GPT 生成。
+
+────────────────────────────────────
+
+Probably Hardcore Liquid — v0.9.15
+
+== In one line ==
+Liquids never pour out clean — and now you own a bottle that can actually clean them.
+
+== What it does ==
+Every liquid container keeps an inherent residue: residue = min(capacity x residue percent x viscosity, cap). Pouring, transferring or draining only moves (total - residue) and keeps the same composition on both sides; a container holding only residue cannot be poured again until fresh liquid is added.
+A viscosity table covers all 37 vanilla liquid components (water = 1: alcohol 1.2, cooking oil 80, starch slurry 100, lye 13...); liquids from other mods default to water.
+
+== Lab Spray Bottle ==
+- 1000 ml, 1x2 grid, ~80 credits. It can only drain or rinse other containers; it cannot be poured out entirely.
+- Drag onto a liquid container = continuous-dilution rinse: total spray M = rinse ratio x target residue (default 3x), final residue ratio = e^(-M/c) ~= 4.98%.
+- Drag onto a faucet to refill (keeps that day's water quality and purifier checks), onto a drain to empty.
+- Sprite follows the fill level (empty / quarter / half / full), scaled from a high-res master at runtime.
+- The chemist starting kit includes a full spray of clean water (quality configurable); the doctor and the lower-levels chemist merchant may sell empty ones.
+
+== This update (0.8.x -> 0.9.15) ==
+- The spray bottle now occupies a true 1x2 grid and lands in the store warehouse instead of the counter or outside the shutter.
+- New high-res sprites with area-averaged downsampling and invisible cell anchors.
+- Fixed the 1 ml / 5 ml droppers being unable to draw while holding only residue; the residue system is fully preserved.
+- Rinse model simplified back to p = e^(-M/c): viscosity only decides how much water you spend, not how clean it gets.
+- Rinse guards: empty containers do nothing; rinsing is refused when the container holds more than (residue cap + configurable headroom).
+- Config menu: rinse ratio is a numeric field (decimals allowed), volume headroom is numeric, doctor chance now rolls once per day.
+- Everything is configurable. No capabilities declared; nightly machine flows are untouched.
+
+== Config (defaults) ==
+residue percent 0.5 (0 = off) - residue cap 5 ml (0 = no cap) - container scope all / vanilla only - viscosity scale 1 (0 = off) - 36-entry viscosity table
+Spray: enabled - rinse ratio 3 - start gift - gift fill pure / high quality / base - rinse headroom 1 ml - chemist vendor weight 10% - doctor chance 25% - price 80
+
+== Compatibility & safety ==
+Zero capabilities declared (no process / steam / files access); nightly machine settlement and save format are untouched; unknown liquids from other mods are treated as water.
+
+Safe & open source - full source on GitHub: https://github.com/realrelx/ProbablyHardcoreLiquid
+Credits: content and code crafted with DeepSeek; artwork by GPT.

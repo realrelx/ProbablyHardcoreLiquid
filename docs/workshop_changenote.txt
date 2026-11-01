@@ -1,0 +1,3 @@
+0.9.15 - 喷壶占格修正为 1x2 并可放入店铺仓库；高清四态贴图（面积平均重采样 + 隐形占格锚点）；修复 1ml/5ml 滴管只剩残渣时吸不动（残留机制保留）；清洗模型回归 p = e^(-M/c)，粘度只影响耗水不影响清洁力；空容器不响应，容器液体超过「残留上限 + 可配余量」才拒绝；配置菜单改为数字输入（清洗倍率可填小数、新增可洗液体上限余量 1ml），博士概率改为每天判定一次（默认 25%）。
+
+0.9.15 - spray bottle now occupies a true 1x2 grid and lands in the store warehouse; new high-res fill-level sprites; fixed 1ml/5ml droppers being unable to draw while holding only residue; rinse model simplified back to p = e^(-M/c) (viscosity only affects water cost); empty containers ignored and a configurable volume headroom guards against dumping a full tank; numeric config fields (decimals for rinse ratio, new 1ml headroom) and doctor chance now rolled once per day (25% default).

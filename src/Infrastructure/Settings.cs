@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,6 +22,22 @@ namespace ProbablyHardcoreLiquid
         public ConfigEntry<int> MaxResidueMl;
         public ConfigEntry<string> ContainerScope;
         public ConfigEntry<float> ViscosityScale;
+
+        // ===== 喷壶（spray）配置 =====
+        public ConfigEntry<bool> SprayEnabled;
+        public ConfigEntry<float> SprayRinseRatio;
+        public ConfigEntry<bool> SprayStartGift;
+        public ConfigEntry<string> SprayGiftFill;
+        public ConfigEntry<int> SprayChemistWeight;
+        public ConfigEntry<float> SprayDoctorProb;
+        public ConfigEntry<int> SprayPrice;
+        public ConfigEntry<float> SprayRinseVolumeLimit;   // v0.9.14：可洗液体上限 = c + 该余量（ml）
+
+        // ===== 滴管修复（dropper 组，v0.8.2）=====
+        // 原版滴管是「空 → 吸满、非空 → 倒出」的二分支。残留系统让它永远非空，
+        // 于是永远只能倒。修法不是免掉残留（v0.8.1 的错误做法），而是让「只剩残留」
+        // 等效于空：滴管里液体 ≤ 残留量时，点容器仍然走吸取分支。
+        public ConfigEntry<bool> DropperSmartDraw;
 
         // ===== 粘度系数表（v0.6.7 起可逐项配置）=====
         // 覆盖原版全部 37 种液体成分（Liquid 类的 LIQUID_* 常量），
@@ -104,7 +120,7 @@ namespace ProbablyHardcoreLiquid
                     null, null,
                     delegate() { return Loc.T("容器最大容积乘这个百分数得到残留体积：1 = 1%，0.5 = 0.5%，0 = 完全关闭", "Residue volume = container capacity x this percent: 1 = 1%, 0.5 = 0.5%, 0 = disabled"); },
                     false);
-                MaxResidueMl = Config.Define("max_residue_ml", 10, "residue",
+                MaxResidueMl = Config.Define("max_residue_ml", 5, "residue",
                     delegate() { return Loc.T("残留上限 (ml)", "Residue cap (ml)"); },
                     null, null,
                     delegate() { return Loc.T("实际残留 = min(残留体积, 残留上限)，防止超大容器留下过高残留；0 = 不设上限", "Actual residue = min(residue volume, cap), prevents huge tanks keeping too much; 0 = no cap"); },
@@ -135,6 +151,52 @@ namespace ProbablyHardcoreLiquid
                         delegate() { return Loc.T("该液体成分的粘度系数（水 = 1）：数值越大残留越多。默认值为 20°C 真实动态粘度。", "Viscosity factor of this liquid component (water = 1): higher means more residue. Default is the real dynamic viscosity at 20C."); },
                         false);
                 }
+
+                // ===== 喷壶配置（spray 组）=====
+                SprayEnabled = Config.Define("spray_enabled", true, "spray",
+                    delegate() { return Loc.T("喷壶总开关", "Spray bottle enabled"); },
+                    delegate() { return Loc.T("启用后化学家开局送喷壶、商贩有售、拖到容器触发清洗", "Enables the spray bottle: chemist start gift, vendor stock, rinse-on-drop"); },
+                    false);
+                SprayRinseRatio = Config.Define("spray_rinse_ratio", 3f, "spray",
+                    delegate() { return Loc.T("清洗倍率 M/c", "Rinse ratio M/c"); },
+                    null, null,
+                    delegate() { return Loc.T("总喷量 = 倍率 × 目标容器残留。3 ≈ 置换 95%（e^-3），可填小数；0 = 禁止清洗（拖动拒绝）", "Total spray volume = ratio x target residue. 3 = ~95% displacement (e^-3); decimals allowed; 0 = rinsing disabled"); },
+                    false);
+                SprayStartGift = Config.Define("spray_start_gift", true, "spray",
+                    delegate() { return Loc.T("化学家开局送", "Chemist start gift"); },
+                    delegate() { return Loc.T("化学家开局时送一把喷壶（按下方水质装满）", "Grants a filled spray bottle on chemist start"); },
+                    false);
+                SprayGiftFill = Config.Define("spray_gift_fill", "pure", "spray",
+                    delegate() { return Loc.T("开局礼内装液", "Gift fill quality"); },
+                    new string[] { "pure", "high_quality", "base" },
+                    delegate() { return Loc.T("开局送的喷壶装什么水：pure 纯水 / high_quality 优质水 / base 基础水", "What the gift spray contains: pure / high quality / base water"); },
+                    false);
+                SprayChemistWeight = Config.Define("spray_chemist_weight", 10, "spray",
+                    delegate() { return Loc.T("化学商人权重", "Chemist vendor weight"); },
+                    null, null,
+                    delegate() { return Loc.T("喷壶在商人货源池的权重（一般物品档位），0 = 不卖；商人卖的都是空壶", "Spray weight in the barter vendor stock pool (0 = never sold; vendors sell it empty)"); },
+                    false);
+                SprayDoctorProb = Config.Define("spray_doctor_prob", 0.25f, "spray",
+                    delegate() { return Loc.T("博士货架概率", "Doctor shelf chance"); },
+                    null, null,
+                    delegate() { return Loc.T("博士每天补货时出现一把空喷壶的概率（0~1），0 = 不卖。每个营业日只判定一次", "Chance (0-1) per day that the doctor's shelf stocks one empty spray; 0 = never. Rolled once per business day"); },
+                    false);
+                SprayPrice = Config.Define("spray_price", 80, "spray",
+                    delegate() { return Loc.T("喷壶定价", "Spray price"); },
+                    null, null,
+                    delegate() { return Loc.T("喷壶基础价值（信用点）", "Base value of the spray bottle (credits)"); },
+                    false);
+                SprayRinseVolumeLimit = Config.Define("spray_rinse_volume_limit_ml", 1f, "spray",
+                    delegate() { return Loc.T("可洗液体上限余量 (ml)", "Rinse volume headroom (ml)"); },
+                    null, null,
+                    delegate() { return Loc.T("容器里液体超过「残留上限 + 这个余量」就拒绝清洗（防把整罐有价值液体倒掉）。例：残留上限 5ml + 余量 1ml → 超过 6ml 不洗；填 0 = 只允许在残留上限以内清洗", "Refuse to rinse when the container holds more than (residue cap + this headroom). Example: cap 5ml + headroom 1ml -> above 6ml no rinse; 0 = only rinse within the residue cap"); },
+                    false);
+
+                // ===== 滴管修复（dropper 组）=====
+                DropperSmartDraw = Config.Define("dropper_smart_draw", true, "dropper",
+                    delegate() { return Loc.T("滴管只剩残留时仍可吸取", "Droppers can draw even with residue"); },
+                    delegate() { return Loc.T("滴管保留残留机制；仅当管内液体不多于残留量时，点别的容器仍走吸取而不是倒出。关闭则退回原版二分（非空就只倒）", "Droppers keep their residue; only when the volume is no more than the residue do they draw instead of pour. Off = vanilla two-way branch (non-empty always pours)"); },
+                    false);
                 Debug.Log("[HardcoreLiquid] settings ready, config=" + (FilePath == null ? "(unknown)" : FilePath));
             }
             catch (Exception e)
@@ -145,9 +207,30 @@ namespace ProbablyHardcoreLiquid
 
         // 配置项缺失时的安全默认值
         public float PercentValue { get { return ResiduePercent != null ? ResiduePercent.Value : 0.5f; } }
-        public int MaxMlValue { get { return MaxResidueMl != null ? MaxResidueMl.Value : 10; } }
+        public int MaxMlValue { get { return MaxResidueMl != null ? MaxResidueMl.Value : 5; } }
         public string ScopeValue { get { return ContainerScope != null && !string.IsNullOrEmpty(ContainerScope.Value) ? ContainerScope.Value : "all"; } }
         public float ViscosityScaleValue { get { return ViscosityScale != null ? ViscosityScale.Value : 1f; } }
+
+        public bool SprayEnabledValue { get { return SprayEnabled == null || SprayEnabled.Value; } }
+        public float SprayRinseRatioValue { get { return SprayRinseRatio != null ? SprayRinseRatio.Value : 3f; } }
+        public bool SprayStartGiftValue { get { return SprayStartGift == null || SprayStartGift.Value; } }
+        public string SprayGiftFillValue
+        {
+            get
+            {
+                string v = SprayGiftFill != null ? SprayGiftFill.Value : null;
+                if (v == "high_quality" || v == "base") return v;
+                return "pure";
+            }
+        }
+        public int SprayChemistWeightValue { get { return SprayChemistWeight != null ? SprayChemistWeight.Value : 10; } }
+        public float SprayDoctorProbValue { get { return SprayDoctorProb != null ? SprayDoctorProb.Value : 0.25f; } }
+        public int SprayPriceValue { get { return SprayPrice != null ? SprayPrice.Value : 80; } }
+        // v0.9.14：可洗液体上限 = 该容器的残留上限 c + 这个余量（ml）；<=0 表示不限制
+        public float SprayRinseVolumeLimitValue { get { return SprayRinseVolumeLimit != null ? SprayRinseVolumeLimit.Value : 1f; } }
+
+        public bool DropperSmartDrawValue { get { return DropperSmartDraw == null || DropperSmartDraw.Value; } }
+
 
         // 取某液体成分的粘度系数：别名先映射到主键；未配置/未知成分（含 mod 新液体）默认 = 1
         public float GetViscosity(string liquidId)
